@@ -28,12 +28,32 @@ RoomName = r.Room!.Name, CustomerName = r.Customer!.FullName
 [HttpPost]
 public async Task<ActionResult<ReservationDto>> CreateReservation(CreateReservationDto dto)
 {
+// 1. Cek apakah Ruangan ada
+var room = await _context.Rooms.FindAsync(dto.RoomId);
+if (room == null) return NotFound("Ruangan tidak ditemukan, King!");
+
+// 2. Cek apakah Ruangan sedang 'Occupied'
+if (room.Status == "Occupied") return BadRequest("Waduh, ruangannya lagi dipake orang lain, King!");
+
 var reservation = new Reservation {
-RoomId = dto.RoomId, CustomerId = dto.CustomerId,
-StartTime = dto.StartTime, EndTime = dto.EndTime
+RoomId = dto.RoomId, 
+CustomerId = dto.CustomerId,
+StartTime = dto.StartTime, 
+EndTime = dto.EndTime
 };
+
+// 3. Otomatis update status ruangan jadi Occupied
+room.Status = "Occupied";
+
 _context.Reservations.Add(reservation);
 await _context.SaveChangesAsync();
-return Ok(new ReservationDto { Id = reservation.Id, RoomId = reservation.RoomId, CustomerId = reservation.CustomerId });
+
+return Ok(new ReservationDto { 
+Id = reservation.Id, 
+RoomId = reservation.RoomId, 
+CustomerId = reservation.CustomerId,
+RoomName = room.Name,
+CustomerName = "Reservasi Berhasil!"
+});
 }
 }

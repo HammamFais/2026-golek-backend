@@ -1,29 +1,32 @@
-using Microsoft.EntityFrameworkCore;
 using GolekBackend.Data;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Registrasi DbContext untuk PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 2. Tambahkan layanan Controller
 builder.Services.AddControllers();
 
-// Add services to the container.
-builder.Services.AddOpenApi();
+// 2. AKTIFKAN SWAGGER
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// 3. KONFIGURASI SWAGGER
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+options.SwaggerEndpoint("/swagger/v1/swagger.json", "v1");
+options.RoutePrefix = string.Empty; // Biar Swagger langsung muncul di localhost:5016
+});
 }
 
-app.UseHttpsRedirection();
-
-// 3. Map Controller agar API bisa diakses
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
