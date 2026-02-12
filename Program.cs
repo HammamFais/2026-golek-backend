@@ -15,7 +15,20 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// 3. KONFIGURASI SWAGGER
+// 3. MIDDLEWARE: Global Error Handling
+app.Use(async (context, next) => {
+try {
+await next();
+} catch (Exception ex) {
+context.Response.StatusCode = 500;
+await context.Response.WriteAsJsonAsync(new { 
+message = "Waduh King, ada masalah di server internal!", 
+detail = ex.Message 
+});
+}
+});
+
+// 4. KONFIGURASI SWAGGER
 if (app.Environment.IsDevelopment())
 {
 app.UseSwagger();
