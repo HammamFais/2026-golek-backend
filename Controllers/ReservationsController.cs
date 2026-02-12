@@ -70,22 +70,30 @@ CustomerName = "Reservasi Berhasil & Aman dari Bentrok!"
 [HttpDelete("{id}")]
 public async Task<IActionResult> DeleteReservation(int id)
 {
-// Amankan data reservasi beserta info ruangannya
 var reservation = await _context.Reservations
 .Include(r => r.Room)
 .FirstOrDefaultAsync(r => r.Id == id);
 
 if (reservation == null) return NotFound("Data reservasi nggak ketemu, King!");
 
-// Kembalikan status ruangan jadi Available lagi
-if (reservation.Room != null)
+var roomId = reservation.RoomId;
+var room = reservation.Room;
+
+// 1. HAPUS DULU dan simpan perubahannya ke database
+_context.Reservations.Remove(reservation);
+await _context.SaveChangesAsync(); 
+
+// 2. BARU CEK SISANYA: Apakah masih ada booking lain di ruangan ini?
+var stillHasReservations = await _context.Reservations.AnyAsync(r => r.RoomId == roomId);
+
+if (!stillHasReservations && room != null)
 {
-reservation.Room.Status = "Available";
+// 3. Hanya jika benar-benar nol reservasi, status jadi Available
+room.Status = "Available";
+await _context.SaveChangesAsync();
+return Ok("Reservasi dicancel. Ruangan sekarang sudah kosong dan tersedia kembali!");
 }
 
-_context.Reservations.Remove(reservation);
-await _context.SaveChangesAsync();
-
-return Ok("Reservasi berhasil dicancel, ruangan sekarang kosong lagi!");
+return Ok("Reservasi dicancel. Ruangan tetap Occupied karena masih ada jadwal booking lainnya.");
 }
 }
