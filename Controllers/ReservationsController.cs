@@ -36,7 +36,7 @@ public async Task<ActionResult<ReservationDto>> CreateReservation(CreateReservat
 var room = await _context.Rooms.FindAsync(dto.RoomId);
 if (room == null) return NotFound("Ruangan tidak ditemukan, King!");
 
-// 2. LOGIKA SAKTI: Cek Bentrok Jadwal di Ruangan yang Sama
+// 2. LOGIKA SAKTI: Cek Bentrok Jadwal
 var isBentrok = await _context.Reservations
 .AnyAsync(r => r.RoomId == dto.RoomId && 
 ((dto.StartTime >= r.StartTime && dto.StartTime < r.EndTime) || 
@@ -65,5 +65,27 @@ CustomerId = reservation.CustomerId,
 RoomName = room.Name,
 CustomerName = "Reservasi Berhasil & Aman dari Bentrok!"
 });
+}
+
+[HttpDelete("{id}")]
+public async Task<IActionResult> DeleteReservation(int id)
+{
+// Amankan data reservasi beserta info ruangannya
+var reservation = await _context.Reservations
+.Include(r => r.Room)
+.FirstOrDefaultAsync(r => r.Id == id);
+
+if (reservation == null) return NotFound("Data reservasi nggak ketemu, King!");
+
+// Kembalikan status ruangan jadi Available lagi
+if (reservation.Room != null)
+{
+reservation.Room.Status = "Available";
+}
+
+_context.Reservations.Remove(reservation);
+await _context.SaveChangesAsync();
+
+return Ok("Reservasi berhasil dicancel, ruangan sekarang kosong lagi!");
 }
 }

@@ -28,13 +28,11 @@ public async Task<ActionResult<IEnumerable<RoomDto>>> SearchRooms(
 {
 var query = _context.Rooms.AsQueryable();
 
-// Filter berdasarkan kapasitas minimal
 if (minCapacity.HasValue)
 {
 query = query.Where(r => r.Capacity >= minCapacity.Value);
 }
 
-// Filter berdasarkan status (Available/Occupied)
 if (!string.IsNullOrEmpty(status))
 {
 query = query.Where(r => r.Status.ToLower() == status.ToLower());
@@ -43,6 +41,25 @@ query = query.Where(r => r.Status.ToLower() == status.ToLower());
 return await query
 .Select(r => new RoomDto { Id = r.Id, Name = r.Name, Capacity = r.Capacity, Status = r.Status })
 .ToListAsync();
+}
+
+[HttpGet("report/status")]
+public async Task<IActionResult> GetRoomStatusReport()
+{
+var report = await _context.Rooms
+.GroupBy(r => r.Status)
+.Select(g => new {
+Status = g.Key,
+Count = g.Count(),
+Rooms = g.Select(r => r.Name).ToList()
+})
+.ToListAsync();
+
+return Ok(new {
+GeneratedAt = DateTime.UtcNow,
+TotalRooms = await _context.Rooms.CountAsync(),
+Details = report
+});
 }
 
 [HttpPost]
