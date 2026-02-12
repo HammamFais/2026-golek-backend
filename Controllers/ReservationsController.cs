@@ -19,9 +19,13 @@ public async Task<ActionResult<IEnumerable<ReservationDto>>> GetReservations()
 return await _context.Reservations
 .Include(r => r.Room).Include(r => r.Customer)
 .Select(r => new ReservationDto {
-Id = r.Id, RoomId = r.RoomId, CustomerId = r.CustomerId,
-StartTime = r.StartTime, EndTime = r.EndTime,
-RoomName = r.Room!.Name, CustomerName = r.Customer!.FullName
+Id = r.Id, 
+RoomId = r.RoomId, 
+CustomerId = r.CustomerId,
+StartTime = r.StartTime, 
+EndTime = r.EndTime,
+RoomName = r.Room!.Name, 
+CustomerName = r.Customer!.FullName
 }).ToListAsync();
 }
 
@@ -32,8 +36,14 @@ public async Task<ActionResult<ReservationDto>> CreateReservation(CreateReservat
 var room = await _context.Rooms.FindAsync(dto.RoomId);
 if (room == null) return NotFound("Ruangan tidak ditemukan, King!");
 
-// 2. Cek apakah Ruangan sedang 'Occupied'
-if (room.Status == "Occupied") return BadRequest("Waduh, ruangannya lagi dipake orang lain, King!");
+// 2. LOGIKA SAKTI: Cek Bentrok Jadwal di Ruangan yang Sama
+var isBentrok = await _context.Reservations
+.AnyAsync(r => r.RoomId == dto.RoomId && 
+((dto.StartTime >= r.StartTime && dto.StartTime < r.EndTime) || 
+(dto.EndTime > r.StartTime && dto.EndTime <= r.EndTime) ||
+(dto.StartTime <= r.StartTime && dto.EndTime >= r.EndTime)));
+
+if (isBentrok) return BadRequest("Waduh King, jam segitu ruangannya sudah ada yang booking!");
 
 var reservation = new Reservation {
 RoomId = dto.RoomId, 
@@ -53,7 +63,7 @@ Id = reservation.Id,
 RoomId = reservation.RoomId, 
 CustomerId = reservation.CustomerId,
 RoomName = room.Name,
-CustomerName = "Reservasi Berhasil!"
+CustomerName = "Reservasi Berhasil & Aman dari Bentrok!"
 });
 }
 }

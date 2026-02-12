@@ -21,6 +21,30 @@ return await _context.Rooms
 .ToListAsync();
 }
 
+[HttpGet("search")]
+public async Task<ActionResult<IEnumerable<RoomDto>>> SearchRooms(
+[FromQuery] int? minCapacity, 
+[FromQuery] string? status)
+{
+var query = _context.Rooms.AsQueryable();
+
+// Filter berdasarkan kapasitas minimal
+if (minCapacity.HasValue)
+{
+query = query.Where(r => r.Capacity >= minCapacity.Value);
+}
+
+// Filter berdasarkan status (Available/Occupied)
+if (!string.IsNullOrEmpty(status))
+{
+query = query.Where(r => r.Status.ToLower() == status.ToLower());
+}
+
+return await query
+.Select(r => new RoomDto { Id = r.Id, Name = r.Name, Capacity = r.Capacity, Status = r.Status })
+.ToListAsync();
+}
+
 [HttpPost]
 public async Task<ActionResult<RoomDto>> CreateRoom(CreateRoomDto roomDto)
 {
