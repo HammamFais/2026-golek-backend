@@ -32,11 +32,9 @@ CustomerName = r.Customer!.FullName
 [HttpPost]
 public async Task<ActionResult<ReservationDto>> CreateReservation(CreateReservationDto dto)
 {
-// 1. Cek apakah Ruangan ada
 var room = await _context.Rooms.FindAsync(dto.RoomId);
 if (room == null) return NotFound("Ruangan tidak ditemukan, King!");
 
-// 2. LOGIKA SAKTI: Cek Bentrok Jadwal
 var isBentrok = await _context.Reservations
 .AnyAsync(r => r.RoomId == dto.RoomId && 
 ((dto.StartTime >= r.StartTime && dto.StartTime < r.EndTime) || 
@@ -52,9 +50,7 @@ StartTime = dto.StartTime,
 EndTime = dto.EndTime
 };
 
-// 3. Otomatis update status ruangan jadi Occupied
 room.Status = "Occupied";
-
 _context.Reservations.Add(reservation);
 await _context.SaveChangesAsync();
 
@@ -63,7 +59,7 @@ Id = reservation.Id,
 RoomId = reservation.RoomId, 
 CustomerId = reservation.CustomerId,
 RoomName = room.Name,
-CustomerName = "Reservasi Berhasil & Aman dari Bentrok!"
+CustomerName = "Reservasi Berhasil!"
 });
 }
 
@@ -76,24 +72,18 @@ var reservation = await _context.Reservations
 
 if (reservation == null) return NotFound("Data reservasi nggak ketemu, King!");
 
-var roomId = reservation.RoomId;
 var room = reservation.Room;
-
-// 1. HAPUS DULU dan simpan perubahannya ke database
 _context.Reservations.Remove(reservation);
 await _context.SaveChangesAsync(); 
 
-// 2. BARU CEK SISANYA: Apakah masih ada booking lain di ruangan ini?
-var stillHasReservations = await _context.Reservations.AnyAsync(r => r.RoomId == roomId);
+var stillHasReservations = await _context.Reservations.AnyAsync(r => r.RoomId == reservation.RoomId);
 
 if (!stillHasReservations && room != null)
 {
-// 3. Hanya jika benar-benar nol reservasi, status jadi Available
 room.Status = "Available";
 await _context.SaveChangesAsync();
-return Ok("Reservasi dicancel. Ruangan sekarang sudah kosong dan tersedia kembali!");
 }
 
-return Ok("Reservasi dicancel. Ruangan tetap Occupied karena masih ada jadwal booking lainnya.");
+return Ok("Reservasi dihapus!");
 }
 }

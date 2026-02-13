@@ -11,7 +11,11 @@ namespace GolekBackend.Controllers;
 public class RoomsController : ControllerBase
 {
 private readonly AppDbContext _context;
-public RoomsController(AppDbContext context) => _context = context;
+
+public RoomsController(AppDbContext context)
+{
+_context = context;
+}
 
 [HttpGet]
 public async Task<ActionResult<IEnumerable<RoomDto>>> GetRooms()
