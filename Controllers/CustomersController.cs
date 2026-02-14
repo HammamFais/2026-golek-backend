@@ -29,4 +29,31 @@ _context.Customers.Add(customer);
 await _context.SaveChangesAsync();
 return Ok(new CustomerDto { Id = customer.Id, FullName = customer.FullName, Email = customer.Email, PhoneNumber = customer.PhoneNumber });
 }
+
+// FITUR BARU: Update Customer (PUT)
+[HttpPut("{id}")]
+public async Task<IActionResult> UpdateCustomer(int id, CreateCustomerDto dto)
+{
+var customer = await _context.Customers.FindAsync(id);
+if (customer == null) return NotFound("Customer nggak ada, King!");
+
+customer.FullName = dto.FullName;
+customer.Email = dto.Email;
+customer.PhoneNumber = dto.PhoneNumber;
+
+await _context.SaveChangesAsync();
+return Ok("Data Customer berhasil diupdate!");
+}
+
+// FITUR BARU: Hapus Customer (DELETE)
+[HttpDelete("{id}")]
+public async Task<IActionResult> DeleteCustomer(int id)
+{
+var customer = await _context.Customers.FindAsync(id);
+if (customer == null) return NotFound("Customer emang nggak ada!");
+
+_context.Customers.Remove(customer);
+await _context.SaveChangesAsync();
+return Ok("Customer sudah dihapus!");
+}
 }

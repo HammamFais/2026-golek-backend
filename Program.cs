@@ -9,25 +9,26 @@ options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")
 
 builder.Services.AddControllers();
 
-// 2. AKTIFKAN SWAGGER STANDAR (Tanpa Gembok yang Bikin Error)
+// 2. AKTIFKAN SWAGGER STANDAR (Cara Paling Aman & Rukun)
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(); // Kita pake default aja biar gak error baris 17
 
 var app = builder.Build();
 
-// 3. KONFIGURASI SWAGGER
+// 3. KONFIGURASI SWAGGER UI (Ganti Nama di Sini Saja)
 if (app.Environment.IsDevelopment())
 {
-app.UseSwagger();
-app.UseSwaggerUI(options =>
-{
-options.SwaggerEndpoint("/swagger/v1/swagger.json", "v1");
-options.RoutePrefix = string.Empty; // Langsung muncul di halaman utama
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        // Ganti nama project-nya di bagian label sini, King!
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Golek Backend API");
+        options.RoutePrefix = string.Empty; 
+    });
 }
 
 app.UseHttpsRedirection();
-app.UseAuthorization(); // Cukup Authorization saja, tanpa gembok JWT
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
