@@ -1,8 +1,9 @@
+using System.Text.Json;
+using GolekBackend.Data;
+using GolekBackend.Models.DTOs;
+using GolekBackend.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using GolekBackend.Data;
-using GolekBackend.Models.Entities;
-using GolekBackend.Models.DTOs;
 
 namespace GolekBackend.Controllers;
 
@@ -10,80 +11,108 @@ namespace GolekBackend.Controllers;
 [ApiController]
 public class ReservationsController : ControllerBase
 {
-private readonly AppDbContext _context;
-public ReservationsController(AppDbContext context) => _context = context;
+    private readonly AppDbContext _context;
 
-[HttpGet]
-public async Task<ActionResult<IEnumerable<ReservationDto>>> GetReservations()
-{
-return await _context.Reservations
-.Include(r => r.Room).Include(r => r.Customer)
-.Select(r => new ReservationDto {
-Id = r.Id, 
-RoomId = r.RoomId, 
-CustomerId = r.CustomerId,
-StartTime = r.StartTime, 
-EndTime = r.EndTime,
-RoomName = r.Room!.Name, 
-CustomerName = r.Customer!.FullName
-}).ToListAsync();
-}
+    public ReservationsController(AppDbContext context) => _context = context;
 
-[HttpPost]
-public async Task<ActionResult<ReservationDto>> CreateReservation(CreateReservationDto dto)
-{
-var room = await _context.Rooms.FindAsync(dto.RoomId);
-if (room == null) return NotFound("Ruangan tidak ditemukan, King!");
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<ReservationDto>>> GetReservations()
+    {
+        return await _context
+            .Reservations.Include(r => r.Room)
+            .Include(r => r.Customer)
+            .Select(r => new ReservationDto
+            {
+                Id = r.Id,
+                RoomId = r.RoomId,
+                CustomerId = r.CustomerId,
+                StartTime = r.StartTime,
+                EndTime = r.EndTime,
+                RoomName = r.Room != null ? r.Room.Name : "Tanpa Nama",
+                CustomerName = r.Customer != null ? r.Customer.FullName : "Anonim",
+            })
+            .ToListAsync();
+    }
 
-var isBentrok = await _context.Reservations
-.AnyAsync(r => r.RoomId == dto.RoomId && 
-((dto.StartTime >= r.StartTime && dto.StartTime < r.EndTime) || 
-(dto.EndTime > r.StartTime && dto.EndTime <= r.EndTime) ||
-(dto.StartTime <= r.StartTime && dto.EndTime >= r.EndTime)));
+    [HttpPost]
+    public async Task<ActionResult<ReservationDto>> CreateReservation([FromBody] JsonElement data)
+    {
+        try
+        {
+            // Ambil data dengan cara yang rukun di .NET 8
+            if (!data.TryGetProperty("roomId", out var roomIdProp))
+                return BadRequest("roomId gaada, King!");
 
-if (isBentrok) return BadRequest("Waduh King, jam segitu ruangannya sudah ada yang booking!");
+            if (!data.TryGetProperty("customerName", out var cNameProp))
+                return BadRequest("customerName gaada, King!");
 
-var reservation = new Reservation {
-RoomId = dto.RoomId, 
-CustomerId = dto.CustomerId,
-StartTime = dto.StartTime, 
-EndTime = dto.EndTime
-};
+            int roomId = roomIdProp.GetInt32();
+            string cName = cNameProp.GetString() ?? "Anonim";
 
-room.Status = "Occupied";
-_context.Reservations.Add(reservation);
-await _context.SaveChangesAsync();
+            var room = await _context.Rooms.FindAsync(roomId);
+            if (room == null)
+                return NotFound("Ruangan gaada King!");
 
-return Ok(new ReservationDto { 
-Id = reservation.Id, 
-RoomId = reservation.RoomId, 
-CustomerId = reservation.CustomerId,
-RoomName = room.Name,
-CustomerName = "Reservasi Berhasil!"
-});
-}
+            // CARI atau BUAT Customer baru biar ga error Foreign Key
+            var customer = await _context.Customers.FirstOrDefaultAsync(c => c.FullName == cName);
+            if (customer == null)
+            {
+                customer = new Customer
+                {
+                    FullName = cName,
+                    Email = cName.Replace(" ", "").ToLower() + "@pens.ac.id",
+                };
+                _context.Customers.Add(customer);
+                await _context.SaveChangesAsync();
+            }
 
-[HttpDelete("{id}")]
-public async Task<IActionResult> DeleteReservation(int id)
-{
-var reservation = await _context.Reservations
-.Include(r => r.Room)
-.FirstOrDefaultAsync(r => r.Id == id);
+            var reservation = new Reservation
+            {
+                RoomId = roomId,
+                CustomerId = customer.Id,
+                StartTime = DateTime.UtcNow,
+                EndTime = DateTime.UtcNow.AddHours(1),
+            };
 
-if (reservation == null) return NotFound("Data reservasi nggak ketemu, King!");
+            room.Status = "Occupied";
+            _context.Reservations.Add(reservation);
+            await _context.SaveChangesAsync();
 
-var room = reservation.Room;
-_context.Reservations.Remove(reservation);
-await _context.SaveChangesAsync(); 
+            return Ok(
+                new ReservationDto
+                {
+                    Id = reservation.Id,
+                    RoomName = room.Name,
+                    CustomerName = customer.FullName,
+                }
+            );
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Waduh Error King: {ex.Message}");
+        }
+    }
 
-var stillHasReservations = await _context.Reservations.AnyAsync(r => r.RoomId == reservation.RoomId);
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteReservation(int id)
+    {
+        var res = await _context
+            .Reservations.Include(r => r.Room)
+            .FirstOrDefaultAsync(r => r.Id == id);
+        if (res == null)
+            return NotFound();
 
-if (!stillHasReservations && room != null)
-{
-room.Status = "Available";
-await _context.SaveChangesAsync();
-}
+        var room = res.Room;
+        _context.Reservations.Remove(res);
+        await _context.SaveChangesAsync();
 
-return Ok("Reservasi dihapus!");
-}
+        var anyLeft = await _context.Reservations.AnyAsync(r => r.RoomId == res.RoomId);
+        if (!anyLeft && room != null)
+        {
+            room.Status = "Available";
+            await _context.SaveChangesAsync();
+        }
+
+        return Ok("Data dihapus!");
+    }
 }
