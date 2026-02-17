@@ -7,27 +7,37 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddControllers();
+// 2. Tambahkan CORS - Gerbang dibuka selebar mungkin
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy => policy.AllowAnyOrigin()
+                        .AllowAnyMethod()
+                        .AllowAnyHeader());
+});
 
-// 2. AKTIFKAN SWAGGER STANDAR (Cara Paling Aman & Rukun)
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(); // Kita pake default aja biar gak error baris 17
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// 3. KONFIGURASI SWAGGER UI (Ganti Nama di Sini Saja)
+// 3. Gunakan CORS (Wajib di urutan ini!)
+app.UseCors("AllowAll");
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
-        // Ganti nama project-nya di bagian label sini, King!
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "Golek Backend API");
         options.RoutePrefix = string.Empty; 
     });
 }
 
-app.UseHttpsRedirection();
+// 4. MATIKAN HTTPS REDIRECTION (Biar gak bentrok sama Frontend localhost)
+// app.UseHttpsRedirection(); // Saya matikan biar jalan tolnya lancar jaya
+
 app.UseAuthorization();
 app.MapControllers();
 
